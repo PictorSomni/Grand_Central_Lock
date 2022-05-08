@@ -29,6 +29,10 @@ COUNTER = 3
 CODE = [1, 2, 3, 4]
 MAX_CODE = 3
 PASS_CARD = ['0x2', '0xa5', '0xa5', '0x35']
+RFIDS = {"FEU":['0x4', '0x8', '0x7a', '0x4', '0x4', '0x18', '0x4'],
+         "TERRE" : ['0x36', '0x6a', '0x62', '0x93'],
+         "AIR" : ['0xb7', '0xa7', '0x74', '0x62'],
+         "EAU" : ['0xc9', '0x7e', '0x14', '0xba']}
 
 number_of_try = 1
 
@@ -40,6 +44,10 @@ pn532.SAM_configuration()
 led = DigitalInOut(board.D53)
 led.direction = Direction.OUTPUT
 led.value = False
+
+led_finale = DigitalInOut(board.A15)
+led_finale.direction = Direction.OUTPUT
+led_finale.value = False
 
 simpleio.tone(board.D11, 1000, duration=1)
 
@@ -63,11 +71,17 @@ display = segments.Seg14x4(i2c)
 display.fill(0)
 sleep(0.1)
 
+
+def get_key(val):
+    for key, value in RFIDS.items():
+         if val == value:
+             return key
+
+
 def end() :
     simpleio.tone(board.D11, 2000, duration=1)
-    print("ID NOT VALID")
-    display.marquee("ID NOT VALID    ",loop=False)
-    display.marquee("SECURITY ALERTED    ",loop=False)
+    print("ERREUR")
+    display.marquee("ERREUR    ",loop=False)
 
     i=0
     while i < 13 :
@@ -77,25 +91,42 @@ def end() :
     number_of_try = 1
 
 while True :
-    display.marquee("READ ID CARD    ",loop=False)
+    display.marquee("LIRE ELEMENT    ",loop=False)
     key_list = []
     uid = pn532.read_passive_target(timeout=0.5)
     if uid is None:
         continue
     card = [hex(i) for i in uid]
     print(card)
-    if card == PASS_CARD:
-        simpleio.tone(board.D11, 1000, duration=0.1)
-        sleep(0.1)
-        simpleio.tone(board.D11, 1000, duration=0.1)
-        sleep(0.1)
-        simpleio.tone(board.D11, 1000, duration=0.5)
-        sleep(0.5)
-        print("ID VALIDATED")
-        display.marquee("ID VALIDATED    ",loop=False)
-        
-        display.marquee("ENTER CODE    ",loop=False)
+    print(len(RFIDS))
+    if len(RFIDS) > 1 :
+        if card in RFIDS.values() :#or card == PASS_CARD:
+            simpleio.tone(board.D11, 1000, duration=0.1)
+            sleep(0.1)
+            simpleio.tone(board.D11, 1000, duration=0.1)
+            sleep(0.1)
+            simpleio.tone(board.D11, 1000, duration=0.5)
+            sleep(0.5)
+            print("ELEMENT VALIDE :")
+            print(get_key(card))
+            display.marquee(f"ELEMENT {get_key(card)}    ",loop=False)
+            del RFIDS[get_key(card)]
 
+        else :
+            simpleio.tone(board.D11, 2000, duration=0.5)
+            print("Element non valide")
+            display.marquee("ELEMENT NON VALIDE    ",loop=False)
+
+    else :
+        print("Tous les elements trouves")
+        simpleio.tone(board.D11, 2000, duration=1)
+        led.value = True
+        display.marquee("BRAVO    ",loop=False)
+        sleep(2)
+        led.value = False
+
+        display.marquee("ENTRER CODE    ",loop=False)
+        
         while len(key_list) <= 3 :
             keys = keypad.pressed_keys
             if keys:
@@ -109,20 +140,20 @@ while True :
         if key_list == CODE :
             simpleio.tone(board.D11, 1000, duration=0.1)
             sleep(0.1)
-            simpleio.tone(board.D11, 1000, duration=0.1)
+            simpleio.tone(board.D11, 1200, duration=0.1)
             sleep(0.1)
-            simpleio.tone(board.D11, 1000, duration=0.5)
+            simpleio.tone(board.D11, 1500, duration=0.5)
             sleep(0.5)
-            led.value = True
+            led_finale.value = True
             display.marquee("FIAT LUX    ",loop=False)
-            sleep(2)
-            led.value = False
+            sleep(3)
+            led_finale.value = False
+            break
 
         else :
             if number_of_try < MAX_CODE :
-                display.print("NOPE")
                 simpleio.tone(board.D11, 2000, duration=2)
-                display.print("WAIT")
+                display.print("CONDE NON VALIDE")
 
                 while COUNTER >= 1:
                     display.print(f"{COUNTER:04}")
@@ -134,5 +165,3 @@ while True :
                 continue
             else :
                 end()
-    else :
-        end()

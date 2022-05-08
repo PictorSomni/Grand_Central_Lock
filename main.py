@@ -26,7 +26,7 @@ import adafruit_matrixkeypad
 #                          CONTENT                          #
 #############################################################
 COUNTER = 3
-CODE = [1, 2, 3, 4]
+CODE = [6, 1, 7, 4]
 MAX_CODE = 3
 PASS_CARD = ['0x2', '0xa5', '0xa5', '0x35']
 RFIDS = {"FEU":['0x4', '0x8', '0x7a', '0x4', '0x4', '0x18', '0x4'],
@@ -35,6 +35,7 @@ RFIDS = {"FEU":['0x4', '0x8', '0x7a', '0x4', '0x4', '0x18', '0x4'],
          "EAU" : ['0xc9', '0x7e', '0x14', '0xba']}
 
 number_of_try = 1
+bravo = True
 
 spi = busio.SPI(board.SCK, board.MOSI, board.MISO)
 cs_pin = DigitalInOut(board.D5)
@@ -89,18 +90,29 @@ def end() :
         sleep(0.5)
         i += 1
     number_of_try = 1
+    bravo = True
+    RFIDS = {"FEU":['0x4', '0x8', '0x7a', '0x4', '0x4', '0x18', '0x4'],
+             "TERRE" : ['0x36', '0x6a', '0x62', '0x93'],
+             "AIR" : ['0xb7', '0xa7', '0x74', '0x62'],
+             "EAU" : ['0xc9', '0x7e', '0x14', '0xba']}
+
 
 while True :
-    display.marquee("LIRE ELEMENT    ",loop=False)
-    key_list = []
-    uid = pn532.read_passive_target(timeout=0.5)
-    if uid is None:
-        continue
-    card = [hex(i) for i in uid]
-    print(card)
-    print(len(RFIDS))
     if len(RFIDS) > 1 :
-        if card in RFIDS.values() :#or card == PASS_CARD:
+        display.marquee("LIRE ELEMENT    ",loop=False)
+        uid = pn532.read_passive_target(timeout=0.5)
+        if uid is None:
+            continue
+        card = [hex(i) for i in uid]
+        print(card)
+        print(len(RFIDS))
+
+        if card == PASS_CARD:
+            print(get_key(card))
+            display.marquee(f"ENTREZ MAITRE    ",loop=False)
+            RFIDS = {}
+
+        elif card in RFIDS.values() :
             simpleio.tone(board.D11, 1000, duration=0.1)
             sleep(0.1)
             simpleio.tone(board.D11, 1000, duration=0.1)
@@ -118,13 +130,16 @@ while True :
             display.marquee("ELEMENT NON VALIDE    ",loop=False)
 
     else :
-        print("Tous les elements trouves")
-        simpleio.tone(board.D11, 2000, duration=1)
-        led.value = True
-        display.marquee("BRAVO    ",loop=False)
-        sleep(2)
-        led.value = False
-
+        if bravo == True :
+            print("Tous les elements trouves")
+            simpleio.tone(board.D11, 2000, duration=1)
+            led.value = True
+            display.marquee("BRAVO    ",loop=False)
+            sleep(2)
+            led.value = False
+            bravo = False
+            
+        key_list = []
         display.marquee("ENTRER CODE    ",loop=False)
         
         while len(key_list) <= 3 :
@@ -135,7 +150,7 @@ while True :
                 simpleio.tone(board.D11, 1000, duration=0.3)
                 
             sleep(0.3)
-            # print(key_list)
+        print(f"CODE : {key_list}")
 
         if key_list == CODE :
             simpleio.tone(board.D11, 1000, duration=0.1)
@@ -153,7 +168,7 @@ while True :
         else :
             if number_of_try < MAX_CODE :
                 simpleio.tone(board.D11, 2000, duration=2)
-                display.print("CONDE NON VALIDE")
+                display.print("CODE NON VALIDE")
 
                 while COUNTER >= 1:
                     display.print(f"{COUNTER:04}")
